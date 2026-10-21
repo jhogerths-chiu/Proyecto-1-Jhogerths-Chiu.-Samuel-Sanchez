@@ -1,30 +1,35 @@
-#include <iostream>
 #include "taller.h"
+#include <iostream>
 
 using namespace std;
 
-// Declaraciones de las funciones definidas en vehiculos.cpp
-void menuRegistrarVehiculo(SistemaTaller* s);
-void menuListarVehiculos(SistemaTaller* s);
-
 int main() {
     SistemaTaller sistema;
-    Taller datosTaller = {"Autoservicio El Chino y el marico", "J-12345678-9", "Avenida Principal, Maracaibo", "0414-1234567"};
+    Taller infoTaller = {"Sam y Jho", "Maracaibo, Edo. Zulia"};
     
-    // Inicializar la memoria del sistema
-    inicializarSistema(&sistema, datosTaller);
+    // Inicializar el sistema y la memoria dinámica
+    inicializarSistema(&sistema, infoTaller);
 
-    int opcion;
+    int opcion = 0;
     do {
         cout << "\n========================================\n";
-        cout << "   SISTEMA DE GESTION DE TALLER MECANICO\n";
-        cout << "   Taller: " << sistema.taller.nombre << "\n";
+        cout << "    SISTEMA DE GESTION - " << sistema.taller.nombre << "\n";
         cout << "========================================\n";
         cout << "1. Registrar Vehiculo\n";
         cout << "2. Listar Vehiculos\n";
-        cout << "0. Salir\n";
+        cout << "3. Registrar Mecanico\n";
+        cout << "4. Listar Mecanicos\n";
+        cout << "5. Registrar Repuesto\n";
+        cout << "6. Listar Repuestos (Inventario)\n";
+        cout << "7. Salir\n";
         cout << "Seleccione una opcion: ";
-        cin >> opcion;
+        
+        if (!(cin >> opcion)) {
+            cout << "Entrada invalida. Intente de nuevo.\n";
+            cin.clear();
+            cin.ignore(10000, '\n');
+            continue;
+        }
 
         switch (opcion) {
             case 1:
@@ -33,15 +38,27 @@ int main() {
             case 2:
                 menuListarVehiculos(&sistema);
                 break;
-            case 0:
-                cout << "Saliendo del sistema...\n";
+            case 3:
+                menuRegistrarMecanico(&sistema);
+                break;
+            case 4:
+                listarMecanicos(&sistema);
+                break;
+            case 5:
+                menuRegistrarRepuesto(&sistema);
+                break;
+            case 6:
+                listarRepuestos(&sistema);
+                break;
+            case 7:
+                cout << "\nGuardando y liberando memoria del sistema...\n";
+                liberarSistema(&sistema);
+                cout << "Saliendo del programa con exito!\n";
                 break;
             default:
-                cout << "Opcion invalida. Intente de nuevo.\n";
+                cout << "Opcion no valida. Intente de nuevo.\n";
         }
-    } while (opcion != 0);
+    } while (opcion != 7);
 
-    // Liberar toda la memoria reservada antes de salir
-    liberarSistema(&sistema);
     return 0;
 }
