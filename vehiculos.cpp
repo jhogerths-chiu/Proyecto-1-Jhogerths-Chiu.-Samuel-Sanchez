@@ -1,6 +1,7 @@
 #include "taller.h"
 #include <iostream>
 #include <cstring>
+#include <limits>
 
 using namespace std;
 
@@ -54,7 +55,7 @@ Vehiculo* agregarVehiculo(SistemaTaller* s, Vehiculo datos) {
     if (buscarVehiculoPorPlaca(s, datos.placa) != nullptr) return nullptr;
     if (datos.anio < 1950 || datos.anio > 2027 || datos.kilometraje < 0) return nullptr;
 
-    // Redimensionamiento automático si se llena la capacidad (duplicar)
+    // Redimensionamiento automático si se llena la capacidad (duplicar 2x)
     if (s->numVehiculos >= s->capacidadVehiculos) {
         int nuevaCapacidad = s->capacidadVehiculos * 2;
         Vehiculo* nuevoArreglo = new Vehiculo[nuevaCapacidad];
@@ -91,7 +92,6 @@ void mostrarVehiculo(Vehiculo* v) {
          << " | " << v->marca << " " << v->modelo << " (" << v->anio << ") "
          << "| Propietario: " << v->nombrePropietario << "\n";
 }
-#include <limits> // Asegúrate de incluir esta librería arriba si no la tienes
 
 void menuRegistrarVehiculo(SistemaTaller* s) {
     Vehiculo v;
@@ -105,7 +105,7 @@ void menuRegistrarVehiculo(SistemaTaller* s) {
     
     cout << "Anio: ";
     while (!(cin >> v.anio)) {
-        cout << "ERROR: Ingrese un año valido (numero): ";
+        cout << "ERROR: Ingrese un anho valido (numero): ";
         cin.clear();
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
     }
