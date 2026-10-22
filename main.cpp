@@ -25,13 +25,13 @@ int main() {
 
         switch(opcion) {
             case 1:
-                // menuVehiculos(&sistema);
+                menuRegistrarVehiculo(&sistema);
                 break;
             case 2:
-                // menuMecanicos(&sistema);
+                menuRegistrarMecanico(&sistema);
                 break;
             case 3:
-                // menuRepuestos(&sistema);
+                menuRegistrarRepuesto(&sistema);
                 break;
             case 4:
                 menuGestionOrdenes(&sistema);
