@@ -2,7 +2,7 @@
 #ifndef TALLER_H
 #define TALLER_H
 
-// --- ESTRUCTURAS BÁSICAS (Commit 1 y 2) ---
+// --- ESTRUCTURAS BÁSICAS ---
 struct Taller {
     char nombre[100];
     char direccion[150];
@@ -107,7 +107,7 @@ Repuesto* agregarRepuesto(SistemaTaller* s, Repuesto r);
 void menuRegistrarRepuesto(SistemaTaller* s);
 void listarRepuestos(const SistemaTaller* s);
 
-// --- PROTOTIPOS ÓRDENES DE SERVICIO (Commit 3) ---
+// --- PROTOTIPOS ÓRDENES DE SERVICIO ---
 OrdenServicio* agregarOrden(SistemaTaller* s, OrdenServicio o);
 OrdenServicio* buscarOrdenPorId(SistemaTaller* s, int id);
 void menuGestionOrdenes(SistemaTaller* s);
