@@ -1,74 +1,52 @@
+// CAPA DE LOGICA - Mecanicos. SIN cin/cout.
 #include "taller.h"
-#include <iostream>
 #include <cstring>
-#include <limits>
 
-using namespace std;
-
-// Buscar mecánico por cédula para evitar duplicados
-Mecanico* buscarMecanicoPorCedula(SistemaTaller* s, const char* cedula) {
-    for (int i = 0; i < s->numMecanicos; i++) {
-        if (strcmp(s->mecanicos[i].cedula, cedula) == 0) {
-            return &(s->mecanicos[i]);
-        }
-    }
+Mecanico* buscarMecanicoPorID(SistemaTaller* s, int id) {
+    for (int i = 0; i < s->numMecanicos; i++)
+        if (s->mecanicos[i].id == id) return &s->mecanicos[i];
     return nullptr;
 }
 
-// Agregar mecánico con redimensionamiento 2x
-Mecanico* agregarMecanico(SistemaTaller* s, Mecanico m) {
-    if (buscarMecanicoPorCedula(s, m.cedula) != nullptr) return nullptr;
+Mecanico* agregarMecanico(SistemaTaller* s, Mecanico datos, CodigoError* error) {
+    CodigoError tmp;
+    if (error == nullptr) error = &tmp;
 
-    if (s->numMecanicos >= s->capacidadMecanicos) {
-        int nuevaCapacidad = s->capacidadMecanicos * 2;
-        Mecanico* nuevoArreglo = new Mecanico[nuevaCapacidad];
-        for (int i = 0; i < s->numMecanicos; i++) {
-            nuevoArreglo[i] = s->mecanicos[i];
-        }
-        delete[] s->mecanicos;
-        s->mecanicos = nuevoArreglo;
-        s->capacidadMecanicos = nuevaCapacidad;
-    }
-
-    m.id = s->siguienteIdMecanico++;
-    m.ordenesActivas = 0; // Inicialmente sin órdenes
-    s->mecanicos[s->numMecanicos] = m;
-    s->numMecanicos++;
-    return &(s->mecanicos[s->numMecanicos - 1]);
-}
-
-// Menú interactivo de registro
-void menuRegistrarMecanico(SistemaTaller* s) {
-    Mecanico m;
-    cout << "\n--- REGISTRAR MECANICO ---\n";
-    cout << "Cedula: ";
-    cin >> m.cedula;
-    cin.ignore();
-    cout << "Nombre completo: ";
-    cin.getline(m.nombre, 100);
-    cout << "Especialidad (ej. Motor, Electricidad): ";
-    cin.getline(m.especialidad, 50);
-
-    if (agregarMecanico(s, m) != nullptr) {
-        cout << "EXITO: Mecanico registrado correctamente.\n";
-    } else {
-        cout << "ERROR: Ya existe un mecanico registrado con esa cedula.\n";
-    }
-}
-
-// Listar mecánicos registrados
-void listarMecanicos(const SistemaTaller* s) {
-    cout << "\n--- LISTADO DE MECANICOS ---\n";
-    if (s->numMecanicos == 0) {
-        cout << "No hay mecanicos registrados.\n";
-        return;
+    if (!textoNoVacio(datos.nombre) || !cedulaValida(datos.cedula) ||
+        !especialidadValida(datos.especialidad) || !fechaValida(datos.fechaIngreso)) {
+        *error = E_DATOS_INVALIDOS;
+        return nullptr;
     }
     for (int i = 0; i < s->numMecanicos; i++) {
-        cout << "ID: " << s->mecanicos[i].id
-             << " | Cedula: " << s->mecanicos[i].cedula
-             << " | Nombre: " << s->mecanicos[i].nombre
-             << " | Especialidad: " << s->mecanicos[i].especialidad
-             << " | Ordenes Activas: " << s->mecanicos[i].ordenesActivas << "\n";
+        if (igualesIgnorandoMayusculas(s->mecanicos[i].cedula, datos.cedula)) {
+            *error = E_DUPLICADO;
+            return nullptr;
+        }
     }
-    cout << "Total de mecanicos: " << s->numMecanicos << "\n";
+    duplicarSiLleno(s->mecanicos, s->numMecanicos, s->capacidadMecanicos);
+
+    Mecanico* nuevo = &s->mecanicos[s->numMecanicos];
+    *nuevo = datos;
+    nuevo->id = s->siguienteIdMecanico++;
+    aMayusculas(nuevo->cedula);
+    aMayusculas(nuevo->especialidad);
+    s->numMecanicos++;
+    *error = E_OK;
+    return nuevo;
+}
+
+Mecanico** listarMecanicos(SistemaTaller* s, int* cantidad) {
+    *cantidad = s->numMecanicos;
+    if (s->numMecanicos == 0) return nullptr;
+    Mecanico** res = new Mecanico*[s->numMecanicos];
+    for (int i = 0; i < s->numMecanicos; i++) res[i] = &s->mecanicos[i];
+    return res;
+}
+
+int contarOrdenesAbiertasMecanico(SistemaTaller* s, int idMecanico) {
+    int n = 0;
+    for (int i = 0; i < s->numOrdenes; i++)
+        if (s->ordenes[i].idMecanico == idMecanico &&
+            strcmp(s->ordenes[i].estado, "ABIERTA") == 0) n++;
+    return n;
 }

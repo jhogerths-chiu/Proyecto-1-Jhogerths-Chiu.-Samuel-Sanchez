@@ -1,154 +1,90 @@
+// CAPA DE LOGICA - Vehiculos. SIN cin/cout.
 #include "taller.h"
-#include <iostream>
 #include <cstring>
-#include <limits>
 
-using namespace std;
-
-// --- 1. GESTIÓN DE MEMORIA GLOBAL ---
-void inicializarSistema(SistemaTaller* s, Taller datosTaller) {
-    s->taller = datosTaller;
-
-    s->capacidadVehiculos = 4;
-    s->numVehiculos = 0;
-    s->vehiculos = new Vehiculo[s->capacidadVehiculos];
-
-    s->capacidadMecanicos = 4;
-    s->numMecanicos = 0;
-    s->mecanicos = new Mecanico[s->capacidadMecanicos];
-
-    s->capacidadRepuestos = 4;
-    s->numRepuestos = 0;
-    s->repuestos = new Repuesto[s->capacidadRepuestos];
-
-    s->capacidadOrdenes = 4;
-    s->numOrdenes = 0;
-    s->ordenes = new OrdenServicio[s->capacidadOrdenes];
-
-    s->siguienteIdVehiculo = 1;
-    s->siguienteIdMecanico = 1;
-    s->siguienteIdRepuesto = 1;
-    s->siguienteIdOrden = 1;
+static bool datosEditablesValidos(const Vehiculo& d) {
+    return textoNoVacio(d.marca) && textoNoVacio(d.modelo) &&
+           textoNoVacio(d.nombrePropietario) &&
+           cedulaValida(d.cedulaPropietario) &&
+           textoNoVacio(d.telefonoPropietario) &&
+           d.anio >= 1950 && d.anio <= 2027;
 }
 
-void liberarSistema(SistemaTaller* s) {
-    for (int i = 0; i < s->numOrdenes; i++) {
-        delete[] s->ordenes[i].detalles;
-    }
-    delete[] s->ordenes;
-    delete[] s->repuestos;
-    delete[] s->mecanicos;
-    delete[] s->vehiculos;
+Vehiculo* buscarVehiculoPorID(SistemaTaller* s, int id) {
+    for (int i = 0; i < s->numVehiculos; i++)
+        if (s->vehiculos[i].id == id) return &s->vehiculos[i];
+    return nullptr;
 }
 
-// --- 2. LÓGICA DE VEHÍCULOS ---
 Vehiculo* buscarVehiculoPorPlaca(SistemaTaller* s, const char* placa) {
-    for (int i = 0; i < s->numVehiculos; i++) {
-        if (strcmp(s->vehiculos[i].placa, placa) == 0) {
-            return &(s->vehiculos[i]);
-        }
-    }
+    for (int i = 0; i < s->numVehiculos; i++)
+        if (igualesIgnorandoMayusculas(s->vehiculos[i].placa, placa)) return &s->vehiculos[i];
     return nullptr;
 }
 
 Vehiculo* agregarVehiculo(SistemaTaller* s, Vehiculo datos) {
+    if (!placaValida(datos.placa)) return nullptr;
+    if (!datosEditablesValidos(datos) || datos.kilometraje < 0) return nullptr;
     if (buscarVehiculoPorPlaca(s, datos.placa) != nullptr) return nullptr;
-    if (datos.anio < 1950 || datos.anio > 2027 || datos.kilometraje < 0) return nullptr;
 
-    // Redimensionamiento automático si se llena la capacidad (duplicar 2x)
-    if (s->numVehiculos >= s->capacidadVehiculos) {
-        int nuevaCapacidad = s->capacidadVehiculos * 2;
-        Vehiculo* nuevoArreglo = new Vehiculo[nuevaCapacidad];
-        for (int i = 0; i < s->numVehiculos; i++) {
-            nuevoArreglo[i] = s->vehiculos[i];
-        }
-        delete[] s->vehiculos;
-        s->vehiculos = nuevoArreglo;
-        s->capacidadVehiculos = nuevaCapacidad;
-    }
+    // Redimensionamiento: si num == capacidad, se duplica la capacidad
+    duplicarSiLleno(s->vehiculos, s->numVehiculos, s->capacidadVehiculos);
 
-    datos.id = s->siguienteIdVehiculo++;
-    s->vehiculos[s->numVehiculos] = datos;
+    Vehiculo* nuevo = &s->vehiculos[s->numVehiculos];
+    *nuevo = datos;
+    nuevo->id = s->siguienteIdVehiculo++;
+    aMayusculas(nuevo->placa);
+    aMayusculas(nuevo->cedulaPropietario);
+    fechaActual(nuevo->fechaRegistro);
     s->numVehiculos++;
-
-    return &(s->vehiculos[s->numVehiculos - 1]);
+    return nuevo;
 }
 
-Vehiculo** listarVehiculos(SistemaTaller* s, int& cantidad) {
-    cantidad = s->numVehiculos;
-    if (cantidad == 0) return nullptr;
-
-    Vehiculo** resultado = new Vehiculo*[cantidad];
-    for (int i = 0; i < cantidad; i++) {
-        resultado[i] = &(s->vehiculos[i]);
-    }
-    return resultado;
+Vehiculo** buscarVehiculosPorPropietario(SistemaTaller* s, const char* subcadena, int* cantidad) {
+    int n = 0;
+    for (int i = 0; i < s->numVehiculos; i++)
+        if (contieneIgnorandoMayusculas(s->vehiculos[i].nombrePropietario, subcadena)) n++;
+    *cantidad = n;
+    if (n == 0) return nullptr;
+    Vehiculo** res = new Vehiculo*[n];
+    int k = 0;
+    for (int i = 0; i < s->numVehiculos; i++)
+        if (contieneIgnorandoMayusculas(s->vehiculos[i].nombrePropietario, subcadena))
+            res[k++] = &s->vehiculos[i];
+    return res;
 }
 
-// --- 3. PRESENTACIÓN DE VEHÍCULOS ---
-void mostrarVehiculo(Vehiculo* v) {
-    if (v == nullptr) return;
-    cout << "ID: " << v->id << " | Placa: " << v->placa 
-         << " | " << v->marca << " " << v->modelo << " (" << v->anio << ") "
-         << "| Propietario: " << v->nombrePropietario << "\n";
+Vehiculo** listarVehiculos(SistemaTaller* s, int* cantidad) {
+    *cantidad = s->numVehiculos;
+    if (s->numVehiculos == 0) return nullptr;
+    Vehiculo** res = new Vehiculo*[s->numVehiculos];
+    for (int i = 0; i < s->numVehiculos; i++) res[i] = &s->vehiculos[i];
+    return res;
 }
 
-void menuRegistrarVehiculo(SistemaTaller* s) {
-    Vehiculo v;
-    cout << "\n--- REGISTRAR VEHICULO ---\n";
-    cout << "Placa: ";
-    cin >> v.placa;
-    cout << "Marca: ";
-    cin >> v.marca;
-    cout << "Modelo: ";
-    cin >> v.modelo;
-    
-    cout << "Anio: ";
-    while (!(cin >> v.anio)) {
-        cout << "ERROR: Ingrese un anho valido (numero): ";
-        cin.clear();
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-    }
-
-    cout << "Kilometraje: ";
-    while (!(cin >> v.kilometraje)) {
-        cout << "ERROR: Ingrese un kilometraje valido (numero): ";
-        cin.clear();
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-    }
-
-    cout << "Nombre del propietario: ";
-    cin.ignore();
-    cin.getline(v.nombrePropietario, 100);
-    cout << "Cedula del propietario: ";
-    cin >> v.cedulaPropietario;
-    cout << "Telefono del propietario: ";
-    cin >> v.telefonoPropietario;
-    strcpy(v.fechaRegistro, "2026-10-16");
-
-    char confirmar;
-    cout << "Guardar registro? (S/N): ";
-    cin >> confirmar;
-    if (confirmar == 'S' || confirmar == 's') {
-        if (agregarVehiculo(s, v) != nullptr) {
-            cout << "EXITO: Vehiculo registrado.\n";
-        } else {
-            cout << "ERROR: Placa duplicada o datos invalidos.\n";
-        }
-    }
+bool actualizarVehiculo(SistemaTaller* s, int id, Vehiculo datos) {
+    Vehiculo* v = buscarVehiculoPorID(s, id);
+    if (v == nullptr) return false;
+    if (!datosEditablesValidos(datos)) return false;
+    // No se tocan: id, placa, kilometraje ni fechaRegistro
+    copiarTexto(v->marca, datos.marca, sizeof v->marca);
+    copiarTexto(v->modelo, datos.modelo, sizeof v->modelo);
+    v->anio = datos.anio;
+    copiarTexto(v->nombrePropietario, datos.nombrePropietario, sizeof v->nombrePropietario);
+    copiarTexto(v->cedulaPropietario, datos.cedulaPropietario, sizeof v->cedulaPropietario);
+    aMayusculas(v->cedulaPropietario);
+    copiarTexto(v->telefonoPropietario, datos.telefonoPropietario, sizeof v->telefonoPropietario);
+    return true;
 }
 
-void menuListarVehiculos(SistemaTaller* s) {
-    int cantidad = 0;
-    Vehiculo** lista = listarVehiculos(s, cantidad);
-    if (lista == nullptr || cantidad == 0) {
-        cout << "No hay vehiculos registrados.\n";
-        return;
-    }
-    cout << "\n--- LISTADO DE VEHICULOS ---\n";
-    for (int i = 0; i < cantidad; i++) {
-        mostrarVehiculo(lista[i]);
-    }
-    cout << "Total: " << cantidad << "\n";
-    delete[] lista; // Liberar solo el arreglo temporal de punteros
+bool eliminarVehiculo(SistemaTaller* s, int id) {
+    int pos = -1;
+    for (int i = 0; i < s->numVehiculos; i++)
+        if (s->vehiculos[i].id == id) { pos = i; break; }
+    if (pos == -1) return false;
+    if (contarOrdenesDeVehiculo(s, id) > 0) return false;
+    for (int i = pos; i < s->numVehiculos - 1; i++)
+        s->vehiculos[i] = s->vehiculos[i + 1];
+    s->numVehiculos--;
+    return true;
 }

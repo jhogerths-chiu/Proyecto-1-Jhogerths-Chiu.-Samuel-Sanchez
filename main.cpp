@@ -1,50 +1,43 @@
+// Punto de entrada: solo menu principal. Toda la logica vive en los demas modulos.
 #include <iostream>
+#include <cstdio>
+#include <cstring>
 #include "taller.h"
-
 using namespace std;
 
 int main() {
     SistemaTaller sistema;
-    Taller datos = {"Sam y Jho", "Maracaibo Edo. Zulia"};
-    inicializarSistema(&sistema, datos);
+    Taller datosTaller;
+    memset(&datosTaller, 0, sizeof datosTaller);
+    copiarTexto(datosTaller.nombre, "Autoservicio El Lago", sizeof datosTaller.nombre);
+    copiarTexto(datosTaller.rif, "J-12345678-9", sizeof datosTaller.rif);
+    copiarTexto(datosTaller.direccion, "Avenida Principal, Maracaibo", sizeof datosTaller.direccion);
+    copiarTexto(datosTaller.telefono, "0261-1234567", sizeof datosTaller.telefono);
 
-    int opcion;
-    do {
-        cout << "╔══════════════════════════════════════╗\n";
-        cout << "║      SISTEMA DE GESTION DE TALLER    ║\n";
-        cout << "║               Sam y Jho              ║\n";
-        cout << "╠══════════════════════════════════════╣\n";
-        cout << "║  1. Gestion de Vehiculos             ║\n";
-        cout << "║  2. Gestion de Mecanicos             ║\n";
-        cout << "║  3. Inventario de Repuestos          ║\n";
-        cout << "║  4. Ordenes de Servicio              ║\n";
-        cout << "║  0. Salir                            ║\n";
-        cout << "╚══════════════════════════════════════╝\n";
-        cout << "Seleccione una opcion: ";
-        cin >> opcion;
+    inicializarSistema(&sistema, datosTaller);
 
-        switch(opcion) {
-            case 1:
-                menuRegistrarVehiculo(&sistema);
-                break;
-            case 2:
-                menuRegistrarMecanico(&sistema);
-                break;
-            case 3:
-                menuRegistrarRepuesto(&sistema);
-                break;
-            case 4:
-                menuGestionOrdenes(&sistema);
-                break;
-            case 0:
-                cout << "\nGuardando y liberando memoria del sistema...\n";
-                liberarSistema(&sistema);
-                cout << "Saliendo del programa con exito!\n";
-                break;
-            default:
-                cout << "Opcion no valida. Intente de nuevo.\n";
+    const char* ops[4] = {"Gestion de Vehiculos", "Gestion de Mecanicos",
+                          "Inventario de Repuestos", "Ordenes de Servicio"};
+    char subtitulo[120];
+    snprintf(subtitulo, sizeof subtitulo, "Taller: %s", sistema.taller.nombre);
+
+    int op = -1;
+    while (true) {
+        imprimirMenu("SISTEMA DE GESTION DE TALLER", subtitulo, ops, 4, "Salir");
+        if (!pedirEntero("Seleccione una opcion: ", &op, 0, 4)) break;   // fin de entrada / CANCELAR
+        if (op == 0) {
+            if (pedirConfirmacion("Salir del programa (los datos en memoria se perderan)")) break;
+            continue;
         }
-    } while(opcion != 0);
+        switch (op) {
+            case 1: menuGestionVehiculos(&sistema); break;
+            case 2: menuGestionMecanicos(&sistema); break;
+            case 3: menuGestionInventario(&sistema); break;
+            case 4: menuGestionOrdenes(&sistema); break;
+        }
+    }
 
+    cout << "\nCerrando el sistema...\n";
+    liberarSistema(&sistema);   // libera TODA la memoria dinamica, incluidos los detalles de cada orden
     return 0;
 }
