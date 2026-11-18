@@ -1,42 +1,16 @@
-// Inicializacion y liberacion de toda la memoria del sistema. SIN cin/cout.
+// Arranque del sistema: prepara la carpeta datos/ y los archivos binarios. SIN cin/cout.
+// Ya no existe SistemaTaller ni arreglos en RAM: los datos viven en disco.
 #include "taller.h"
 
-void inicializarSistema(SistemaTaller* s, Taller datosTaller) {
-    s->taller = datosTaller;
+CodigoError inicializarSistema() {
+    if (!crearCarpeta(CARPETA_DATOS)) return errorArchivo(CARPETA_DATOS);
 
-    s->capacidadVehiculos = 4;
-    s->numVehiculos = 0;
-    s->vehiculos = new Vehiculo[s->capacidadVehiculos];
-
-    s->capacidadMecanicos = 4;
-    s->numMecanicos = 0;
-    s->mecanicos = new Mecanico[s->capacidadMecanicos];
-
-    s->capacidadRepuestos = 4;
-    s->numRepuestos = 0;
-    s->repuestos = new Repuesto[s->capacidadRepuestos];
-
-    s->capacidadOrdenes = 4;
-    s->numOrdenes = 0;
-    s->ordenes = new OrdenServicio[s->capacidadOrdenes];
-
-    s->siguienteIdVehiculo = 1;
-    s->siguienteIdMecanico = 1;
-    s->siguienteIdRepuesto = 1;
-    s->siguienteIdOrden = 1;
-}
-
-void liberarSistema(SistemaTaller* s) {
-    // 1) Memoria anidada: el arreglo de detalles de CADA orden
-    for (int i = 0; i < s->numOrdenes; i++) {
-        delete[] s->ordenes[i].detalles;
-        s->ordenes[i].detalles = nullptr;
+    // Cada archivo de entidades que no exista se crea con su header inicial.
+    // taller.bin NO se crea aqui: requiere pedir los datos al usuario (lo hace main).
+    const char* rutas[4] = {RUTA_VEHICULOS, RUTA_MECANICOS, RUTA_REPUESTOS, RUTA_ORDENES};
+    for (int i = 0; i < 4; i++) {
+        CodigoError e = inicializarArchivo(rutas[i]);
+        if (e != E_OK) return e;
     }
-    // 2) Los arreglos principales
-    delete[] s->ordenes;    s->ordenes = nullptr;
-    delete[] s->repuestos;  s->repuestos = nullptr;
-    delete[] s->mecanicos;  s->mecanicos = nullptr;
-    delete[] s->vehiculos;  s->vehiculos = nullptr;
-    s->numOrdenes = s->numRepuestos = s->numMecanicos = s->numVehiculos = 0;
-    s->capacidadOrdenes = s->capacidadRepuestos = s->capacidadMecanicos = s->capacidadVehiculos = 0;
+    return E_OK;
 }

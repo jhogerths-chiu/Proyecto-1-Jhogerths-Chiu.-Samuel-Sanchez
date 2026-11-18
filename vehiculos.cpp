@@ -1,4 +1,4 @@
-// CAPA DE LOGICA - Vehiculos. SIN cin/cout.
+// CAPA DE LOGICA - Vehiculos. SIN cin/cout. Lee y escribe solo a traves de la persistencia.
 #include "taller.h"
 #include <cstring>
 
@@ -10,81 +10,102 @@ static bool datosEditablesValidos(const Vehiculo& d) {
            d.anio >= 1950 && d.anio <= 2027;
 }
 
-Vehiculo* buscarVehiculoPorID(SistemaTaller* s, int id) {
-    for (int i = 0; i < s->numVehiculos; i++)
-        if (s->vehiculos[i].id == id) return &s->vehiculos[i];
-    return nullptr;
+// Busqueda por ID: calculo directo de la posicion, sin recorrer el archivo.
+// E_ELIMINADO deja el registro en 'out' para que la presentacion pueda decir "fue eliminado".
+CodigoError obtenerVehiculoPorID(int id, Vehiculo& out, long* posicion) {
+    CodigoError e = leerVehiculoPorID(id, out, posicion);
+    if (e != E_OK) return e;
+    return out.eliminado ? E_ELIMINADO : E_OK;
 }
 
-Vehiculo* buscarVehiculoPorPlaca(SistemaTaller* s, const char* placa) {
-    for (int i = 0; i < s->numVehiculos; i++)
-        if (igualesIgnorandoMayusculas(s->vehiculos[i].placa, placa)) return &s->vehiculos[i];
-    return nullptr;
+// Busqueda por otro campo: recorre el archivo con UN solo registro en memoria a la vez.
+CodigoError obtenerVehiculoPorPlaca(const char* placa, Vehiculo& out) {
+    ArchivoHeader h;
+    CodigoError e = leerHeader(RUTA_VEHICULOS, h);
+    if (e != E_OK) return e;
+    for (int id = 1; id <= h.cantidadRegistros; id++) {
+        Vehiculo v;
+        e = leerVehiculoPorID(id, v);
+        if (e != E_OK) return e;
+        if (!v.eliminado && igualesIgnorandoMayusculas(v.placa, placa)) { out = v; return E_OK; }
+    }
+    return E_VEHICULO_NO_EXISTE;
 }
 
-Vehiculo* agregarVehiculo(SistemaTaller* s, Vehiculo datos) {
-    if (!placaValida(datos.placa)) return nullptr;
-    if (!datosEditablesValidos(datos) || datos.kilometraje < 0) return nullptr;
-    if (buscarVehiculoPorPlaca(s, datos.placa) != nullptr) return nullptr;
+CodigoError registrarVehiculo(Vehiculo datos, int* idNuevo) {
+    if (!placaValida(datos.placa) || !datosEditablesValidos(datos) || datos.kilometraje < 0)
+        return E_DATOS_INVALIDOS;
 
-    // Redimensionamiento: si num == capacidad, se duplica la capacidad
-    duplicarSiLleno(s->vehiculos, s->numVehiculos, s->capacidadVehiculos);
+    // Placa unica solo entre los ACTIVOS (la de un vehiculo eliminado puede reutilizarse)
+    Vehiculo existente;
+    CodigoError e = obtenerVehiculoPorPlaca(datos.placa, existente);
+    if (e == E_OK) return E_DUPLICADO;
+    if (e != E_VEHICULO_NO_EXISTE) return e;
 
-    Vehiculo* nuevo = &s->vehiculos[s->numVehiculos];
-    *nuevo = datos;
-    nuevo->id = s->siguienteIdVehiculo++;
-    aMayusculas(nuevo->placa);
-    aMayusculas(nuevo->cedulaPropietario);
-    fechaActual(nuevo->fechaRegistro);
-    s->numVehiculos++;
-    return nuevo;
+    aMayusculas(datos.placa);
+    aMayusculas(datos.cedulaPropietario);
+    e = guardarVehiculo(datos);
+    if (e == E_OK && idNuevo != nullptr) *idNuevo = datos.id;
+    return e;
 }
 
-Vehiculo** buscarVehiculosPorPropietario(SistemaTaller* s, const char* subcadena, int* cantidad) {
-    int n = 0;
-    for (int i = 0; i < s->numVehiculos; i++)
-        if (contieneIgnorandoMayusculas(s->vehiculos[i].nombrePropietario, subcadena)) n++;
-    *cantidad = n;
-    if (n == 0) return nullptr;
-    Vehiculo** res = new Vehiculo*[n];
-    int k = 0;
-    for (int i = 0; i < s->numVehiculos; i++)
-        if (contieneIgnorandoMayusculas(s->vehiculos[i].nombrePropietario, subcadena))
-            res[k++] = &s->vehiculos[i];
-    return res;
+CodigoError buscarVehiculosPorPropietario(const char* subcadena, Vehiculo* res, int& cantidad, bool& hayMas) {
+    cantidad = 0;
+    hayMas = false;
+    ArchivoHeader h;
+    CodigoError e = leerHeader(RUTA_VEHICULOS, h);
+    if (e != E_OK) return e;
+    for (int id = 1; id <= h.cantidadRegistros; id++) {
+        Vehiculo v;
+        e = leerVehiculoPorID(id, v);
+        if (e != E_OK) return e;
+        if (v.eliminado || !contieneIgnorandoMayusculas(v.nombrePropietario, subcadena)) continue;
+        if (cantidad == MAX_RESULTADOS) { hayMas = true; break; }
+        res[cantidad++] = v;
+    }
+    return E_OK;
 }
 
-Vehiculo** listarVehiculos(SistemaTaller* s, int* cantidad) {
-    *cantidad = s->numVehiculos;
-    if (s->numVehiculos == 0) return nullptr;
-    Vehiculo** res = new Vehiculo*[s->numVehiculos];
-    for (int i = 0; i < s->numVehiculos; i++) res[i] = &s->vehiculos[i];
-    return res;
+CodigoError listarVehiculos(Vehiculo* res, int& cantidad, bool& hayMas) {
+    cantidad = 0;
+    hayMas = false;
+    ArchivoHeader h;
+    CodigoError e = leerHeader(RUTA_VEHICULOS, h);
+    if (e != E_OK) return e;
+    for (int id = 1; id <= h.cantidadRegistros; id++) {
+        Vehiculo v;
+        e = leerVehiculoPorID(id, v);
+        if (e != E_OK) return e;
+        if (v.eliminado) continue;
+        if (cantidad == MAX_RESULTADOS) { hayMas = true; break; }
+        res[cantidad++] = v;
+    }
+    return E_OK;
 }
 
-bool actualizarVehiculo(SistemaTaller* s, int id, Vehiculo datos) {
-    Vehiculo* v = buscarVehiculoPorID(s, id);
-    if (v == nullptr) return false;
-    if (!datosEditablesValidos(datos)) return false;
-    // No se tocan: id, placa, kilometraje ni fechaRegistro
-    copiarTexto(v->marca, datos.marca, sizeof v->marca);
-    copiarTexto(v->modelo, datos.modelo, sizeof v->modelo);
-    v->anio = datos.anio;
-    copiarTexto(v->nombrePropietario, datos.nombrePropietario, sizeof v->nombrePropietario);
-    copiarTexto(v->cedulaPropietario, datos.cedulaPropietario, sizeof v->cedulaPropietario);
-    aMayusculas(v->cedulaPropietario);
-    copiarTexto(v->telefonoPropietario, datos.telefonoPropietario, sizeof v->telefonoPropietario);
-    return true;
+CodigoError actualizarVehiculo(int id, Vehiculo datos) {
+    Vehiculo v;
+    CodigoError e = obtenerVehiculoPorID(id, v);
+    if (e != E_OK) return e;
+    if (!datosEditablesValidos(datos)) return E_DATOS_INVALIDOS;
+    // No se tocan: id, placa, kilometraje ni fechaCreacion
+    copiarTexto(v.marca, datos.marca, sizeof v.marca);
+    copiarTexto(v.modelo, datos.modelo, sizeof v.modelo);
+    v.anio = datos.anio;
+    copiarTexto(v.nombrePropietario, datos.nombrePropietario, sizeof v.nombrePropietario);
+    copiarTexto(v.cedulaPropietario, datos.cedulaPropietario, sizeof v.cedulaPropietario);
+    aMayusculas(v.cedulaPropietario);
+    copiarTexto(v.telefonoPropietario, datos.telefonoPropietario, sizeof v.telefonoPropietario);
+    return sobrescribirVehiculo(v);
 }
 
-bool eliminarVehiculo(SistemaTaller* s, int id) {
-    int pos = -1;
-    for (int i = 0; i < s->numVehiculos; i++)
-        if (s->vehiculos[i].id == id) { pos = i; break; }
-    if (pos == -1) return false;
-    if (contarOrdenesDeVehiculo(s, id) > 0) return false;
-    for (int i = pos; i < s->numVehiculos - 1; i++)
-        s->vehiculos[i] = s->vehiculos[i + 1];
-    s->numVehiculos--;
-    return true;
+CodigoError eliminarVehiculo(int id) {
+    Vehiculo v;
+    CodigoError e = obtenerVehiculoPorID(id, v);
+    if (e != E_OK) return e;
+    int ordenes = 0;
+    e = contarOrdenesDeVehiculo(id, ordenes);
+    if (e != E_OK) return e;
+    if (ordenes > 0) return E_VEHICULO_CON_ORDENES;     // en cualquier estado
+    return marcarVehiculoEliminado(id);
 }

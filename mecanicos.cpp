@@ -2,51 +2,60 @@
 #include "taller.h"
 #include <cstring>
 
-Mecanico* buscarMecanicoPorID(SistemaTaller* s, int id) {
-    for (int i = 0; i < s->numMecanicos; i++)
-        if (s->mecanicos[i].id == id) return &s->mecanicos[i];
-    return nullptr;
+// E_ELIMINADO = mecanico dado de baja. El registro queda en 'out' para poder mostrar su
+// nombre en el historial (ordenes CERRADAS y ANULADAS).
+CodigoError obtenerMecanicoPorID(int id, Mecanico& out, long* posicion) {
+    CodigoError e = leerMecanicoPorID(id, out, posicion);
+    if (e != E_OK) return e;
+    return out.eliminado ? E_ELIMINADO : E_OK;
 }
 
-Mecanico* agregarMecanico(SistemaTaller* s, Mecanico datos, CodigoError* error) {
-    CodigoError tmp;
-    if (error == nullptr) error = &tmp;
-
+CodigoError registrarMecanico(Mecanico datos, int* idNuevo) {
     if (!textoNoVacio(datos.nombre) || !cedulaValida(datos.cedula) ||
-        !especialidadValida(datos.especialidad) || !fechaValida(datos.fechaIngreso)) {
-        *error = E_DATOS_INVALIDOS;
-        return nullptr;
-    }
-    for (int i = 0; i < s->numMecanicos; i++) {
-        if (igualesIgnorandoMayusculas(s->mecanicos[i].cedula, datos.cedula)) {
-            *error = E_DUPLICADO;
-            return nullptr;
-        }
-    }
-    duplicarSiLleno(s->mecanicos, s->numMecanicos, s->capacidadMecanicos);
+        !especialidadValida(datos.especialidad) || !fechaValida(datos.fechaIngreso))
+        return E_DATOS_INVALIDOS;
 
-    Mecanico* nuevo = &s->mecanicos[s->numMecanicos];
-    *nuevo = datos;
-    nuevo->id = s->siguienteIdMecanico++;
-    aMayusculas(nuevo->cedula);
-    aMayusculas(nuevo->especialidad);
-    s->numMecanicos++;
-    *error = E_OK;
-    return nuevo;
+    // Cedula unica entre TODOS los registros (activos y dados de baja)
+    ArchivoHeader h;
+    CodigoError e = leerHeader(RUTA_MECANICOS, h);
+    if (e != E_OK) return e;
+    for (int id = 1; id <= h.cantidadRegistros; id++) {
+        Mecanico m;
+        e = leerMecanicoPorID(id, m);
+        if (e != E_OK) return e;
+        if (igualesIgnorandoMayusculas(m.cedula, datos.cedula)) return E_DUPLICADO;
+    }
+
+    aMayusculas(datos.cedula);
+    aMayusculas(datos.especialidad);
+    e = guardarMecanico(datos);
+    if (e == E_OK && idNuevo != nullptr) *idNuevo = datos.id;
+    return e;
 }
 
-Mecanico** listarMecanicos(SistemaTaller* s, int* cantidad) {
-    *cantidad = s->numMecanicos;
-    if (s->numMecanicos == 0) return nullptr;
-    Mecanico** res = new Mecanico*[s->numMecanicos];
-    for (int i = 0; i < s->numMecanicos; i++) res[i] = &s->mecanicos[i];
-    return res;
+// Activos y dados de baja (la presentacion los distingue por m.eliminado)
+CodigoError listarMecanicos(Mecanico* res, int& cantidad, bool& hayMas) {
+    cantidad = 0;
+    hayMas = false;
+    ArchivoHeader h;
+    CodigoError e = leerHeader(RUTA_MECANICOS, h);
+    if (e != E_OK) return e;
+    for (int id = 1; id <= h.cantidadRegistros; id++) {
+        if (cantidad == MAX_RESULTADOS) { hayMas = true; break; }
+        e = leerMecanicoPorID(id, res[cantidad]);
+        if (e != E_OK) return e;
+        cantidad++;
+    }
+    return E_OK;
 }
 
-int contarOrdenesAbiertasMecanico(SistemaTaller* s, int idMecanico) {
-    int n = 0;
-    for (int i = 0; i < s->numOrdenes; i++)
-        if (s->ordenes[i].idMecanico == idMecanico &&
-            strcmp(s->ordenes[i].estado, "ABIERTA") == 0) n++;
-    return n;
+CodigoError darDeBajaMecanico(int id) {
+    Mecanico m;
+    CodigoError e = obtenerMecanicoPorID(id, m);     // E_ID_NO_EXISTE o E_ELIMINADO (ya de baja)
+    if (e != E_OK) return e;
+    int abiertas = 0;
+    e = contarOrdenesAbiertasMecanico(id, abiertas);
+    if (e != E_OK) return e;
+    if (abiertas > 0) return E_MECANICO_CON_ORDENES_ABIERTAS;
+    return marcarMecanicoEliminado(id);
 }
