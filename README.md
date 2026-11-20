@@ -1,135 +1,72 @@
 # Sistema de Gestión de Taller Mecánico
 
-Proyecto 1 de **Programación 2** (trimestre 2026-C) · Universidad Rafael Urdaneta · Prof. Ing. Victor Kneider
+Programación 2 · 2026-C · Universidad Rafael Urdaneta · Profesor: Ing. Victor Kneider
 
-## Integrantes
-* Jhogerths Shiloung Chiu Herrera
-* Samuel Elías Sánchez Herández
+Aplicación de consola en C++ para gestionar un taller mecánico: vehículos, mecánicos, inventario de repuestos y órdenes de servicio.
 
-## Descripción del sistema
-Sistema en C++ para administrar un taller mecánico: **vehículos** (con los datos del propietario), **mecánicos**,
-**inventario de repuestos** y **órdenes de servicio**. Usa memoria dinámica manual (`new` / `delete`), arreglos que
-se redimensionan solos (la capacidad se duplica al llenarse), memoria dinámica anidada (cada orden tiene su propio
-arreglo de detalles) y una separación estricta entre la capa de lógica y la de presentación.
-No se usa `vector` ni ningún contenedor de la STL; `std::string` solo se usa para leer temporalmente la entrada.
+## Estado del proyecto
 
-## Compilación y ejecución
-```bash
-g++ -std=c++11 -Wall -Wextra -o taller main.cpp sistema.cpp utilidades.cpp vehiculos.cpp mecanicos.cpp repuestos.cpp ordenes.cpp entrada.cpp menu_vehiculos.cpp menu_mecanicos.cpp menu_repuestos.cpp menu_ordenes.cpp
-./taller                                          # uso interactivo
-./taller < pruebas/entrada.txt > pruebas/salida.txt   # ejecuta los 8 casos de uso
-```
-En Windows (PowerShell) ejecutar `.\taller.exe` y, para las pruebas,
-`Get-Content pruebas\entrada.txt | .\taller.exe > pruebas\salida.txt` (o en `cmd`: `taller.exe < pruebas\entrada.txt > pruebas\salida.txt`).
-
-Escribir `CANCELAR` en cualquier dato aborta la operación en curso. El programa no usa `getch` ni `system("pause")`.
-
-## Organización de archivos
-| Archivo | Capa | Contenido |
+| Proyecto | Descripción | Estado |
 |---|---|---|
-| `taller.h` | — | Estructuras, enum `CodigoError`, plantilla `duplicarSiLleno`, todos los prototipos |
-| `sistema.cpp` | Lógica | `inicializarSistema`, `liberarSistema` |
-| `utilidades.cpp` | Lógica | Validaciones (cédula, placa, fecha, especialidad) y manejo de texto |
-| `vehiculos.cpp`, `mecanicos.cpp`, `repuestos.cpp`, `ordenes.cpp` | Lógica | CRUD y reglas de negocio de cada módulo |
-| `entrada.cpp` | Presentación | Lectura robusta (`pedirTexto`, `pedirEntero`, ...), dibujo de menús y bordes de tablas |
-| `menu_*.cpp` | Presentación | Menús, formularios y tablas de cada módulo |
-| `main.cpp` | Presentación | Menú principal |
+| Proyecto 1 | Sistema en memoria (arreglos dinámicos), sin persistencia | Superado por el Proyecto 2 |
+| **Proyecto 2** | **Persistencia en archivos binarios y acceso aleatorio** | **Completo (este código)** |
 
-## Diagrama de estructuras
+> La documentación técnica completa del Proyecto 2 (estructuras, `sizeof`, diseño del detalle de la orden, firmas, orden de escrituras y preguntas de análisis) está en **[README_V2.md](README_V2.md)**.
+
+## Qué cambió respecto al Proyecto 1
+
+- Los datos viven en disco (`datos/*.bin`) y sobreviven entre ejecuciones. Ya no existen `SistemaTaller` ni los arreglos dinámicos: cada operación abre el archivo, calcula la posición del registro, hace `seekg`/`seekp`, lee o escribe **un solo registro** y cierra.
+- Búsqueda por ID por cálculo directo: `posicion = sizeof(ArchivoHeader) + (id - 1) * sizeof(Estructura)`.
+- Borrado **lógico** (`eliminado`) en todas las entidades; los registros nunca se mueven.
+- Mecánicos con **baja lógica** que conserva el historial de sus órdenes.
+- El detalle de cada orden se guarda dentro de su registro (arreglo fijo de hasta 20 líneas).
+- Operaciones compuestas que modifican varios archivos con validación previa y un orden de escritura razonado.
+- Funciones nuevas: verificación de integridad, respaldo y tres reportes.
+
+## Compilar y ejecutar
+
 ```
-SistemaTaller
- ├─ Taller taller                      (único, sin CRUD)
- ├─ Vehiculo*       vehiculos  [num, capacidad]   ← arreglo dinámico
- ├─ Mecanico*       mecanicos  [num, capacidad]   ← arreglo dinámico
- ├─ Repuesto*       repuestos  [num, capacidad]   ← arreglo dinámico
- ├─ OrdenServicio*  ordenes    [num, capacidad]   ← arreglo dinámico
- │     └─ cada OrdenServicio:
- │          idVehiculo ───────────► Vehiculo.id
- │          idMecanico ───────────► Mecanico.id
- │          DetalleOrden* detalles [numDetalles, capacidadDetalles]  ← arreglo dinámico PROPIO
- │               └─ cada DetalleOrden: idRepuesto ──► Repuesto.id ; cantidad ; precioUnitario
- └─ siguienteIdVehiculo / Mecanico / Repuesto / Orden   (IDs autoincrementales desde 1)
+g++ -std=c++11 -Wall -Wextra -o taller *.cpp
+./taller            (Windows: taller.exe)
 ```
-Las relaciones se hacen por **ID** (no por puntero), de modo que redimensionar un arreglo nunca deja referencias rotas.
 
-## Separación de capas
-* **Lógica** (`sistema`, `utilidades`, `vehiculos`, `mecanicos`, `repuestos`, `ordenes`): opera sobre `SistemaTaller*`,
-  **no contiene `cin` ni `cout`**. Retorna punteros a la entidad afectada, arreglos de punteros, `bool` o un `CodigoError`.
-* **Presentación** (`entrada`, `menu_*`, `main`): lee datos, llama a la lógica y muestra el resultado. **No modifica
-  datos directamente**: todo cambio pasa por una función de lógica. Los mensajes de error con datos concretos
-  (`ERROR: Stock insuficiente de 'X'. Disponible: 2, solicitado: 5.`) se arman aquí a partir del `CodigoError` recibido.
+Al iniciar, el programa crea la carpeta `datos/` y los archivos que falten. En el primer arranque solicita los datos del taller. La carpeta `datos/` incluida viene pre-poblada (8 vehículos, 4 mecánicos —uno de baja—, 12 repuestos y 10 órdenes en los tres estados).
 
-## Reglas de diseño destacadas
-* El total de una orden **no se almacena**: `calcularTotalOrden` = `manoObra` + Σ(`cantidad` × `precioUnitario`).
-* Al agregar un repuesto que ya está en la orden se acumula en la línea existente (conserva el precio con el que se agregó).
-* Al anular una orden se devuelve el stock pero se **conservan sus líneas** (historial y total consultables). Por eso un repuesto
-  que aparece en alguna orden, aunque esté anulada, no puede eliminarse.
-* "BAJO STOCK" = `stock <= stockMinimo`.
-* Placas y cédulas se guardan en mayúsculas y se comparan sin distinguir mayúsculas/minúsculas.
+## Menú
 
-## Firmas diseñadas (mecánicos, repuestos, órdenes)
-Para los módulos libres se usa el enum `CodigoError`, que permite a la presentación distinguir **por qué** falló una operación
-(el problema que plantea la pregunta frecuente sobre `eliminarVehiculo` con `bool`).
-
-### Mecánicos
-```cpp
-Mecanico*  agregarMecanico(SistemaTaller* s, Mecanico datos, CodigoError* error);
-Mecanico*  buscarMecanicoPorID(SistemaTaller* s, int id);
-Mecanico** listarMecanicos(SistemaTaller* s, int* cantidad);        // el llamador hace delete[]
-int        contarOrdenesAbiertasMecanico(SistemaTaller* s, int idMecanico);
 ```
-* `agregarMecanico` retorna el puntero (igual que `agregarVehiculo`) y entrega el motivo del fallo (`E_DUPLICADO`, `E_DATOS_INVALIDOS`) por el parámetro `error`.
-* `listarMecanicos` retorna `Mecanico**` siguiendo el patrón de `listarVehiculos`; las órdenes abiertas se consultan con `contarOrdenesAbiertasMecanico`, que también sirve para la regla de máximo 3.
-
-### Repuestos
-```cpp
-Repuesto*   agregarRepuesto(SistemaTaller* s, Repuesto datos, CodigoError* error);
-Repuesto*   buscarRepuestoPorID(SistemaTaller* s, int id);
-Repuesto*   buscarRepuestoPorCodigo(SistemaTaller* s, const char* codigo);
-Repuesto**  buscarRepuestosPorTexto(SistemaTaller* s, const char* subcadena, int* cantidad);
-Repuesto**  listarRepuestos(SistemaTaller* s, int* cantidad);
-CodigoError registrarEntradaMercancia(SistemaTaller* s, int idRepuesto, int cantidad);
-CodigoError cambiarPrecioRepuesto(SistemaTaller* s, int idRepuesto, float nuevoPrecio);
-CodigoError eliminarRepuesto(SistemaTaller* s, int idRepuesto);
-bool        estaBajoStock(const Repuesto* r);
-bool        repuestoUsadoEnOrdenes(SistemaTaller* s, int idRepuesto);
+1. Gestión de Vehículos        4. Órdenes de Servicio
+2. Gestión de Mecánicos        5. Reportes
+3. Inventario de Repuestos     6. Mantenimiento (integridad y backup)
+0. Salir
 ```
-* Las operaciones que no producen una entidad nueva (entrada, cambio de precio, eliminar) retornan `CodigoError`: no hay un puntero natural que devolver y la presentación necesita saber si fue inexistente, cantidad inválida, precio inválido o repuesto en uso.
-* `estaBajoStock` es una función aparte para que la regla viva en un solo lugar.
 
-### Órdenes
-```cpp
-OrdenServicio*  abrirOrden(SistemaTaller* s, int idVehiculo, int idMecanico, int kilometrajeIngreso,
-                           const char* descripcionFalla, CodigoError* error);
-OrdenServicio*  buscarOrdenPorID(SistemaTaller* s, int id);
-OrdenServicio*  ordenAbiertaDeVehiculo(SistemaTaller* s, int idVehiculo);
-CodigoError     agregarRepuestoAOrden(SistemaTaller* s, int idOrden, int idRepuesto, int cantidad);
-CodigoError     quitarRepuestoDeOrden(SistemaTaller* s, int idOrden, int idRepuesto);
-CodigoError     cerrarOrden(SistemaTaller* s, int idOrden, float manoObra);
-CodigoError     anularOrden(SistemaTaller* s, int idOrden);
-float           calcularSubtotalRepuestos(const OrdenServicio* o);
-float           calcularTotalOrden(const OrdenServicio* o);
-int             contarOrdenesDeVehiculo(SistemaTaller* s, int idVehiculo);
-OrdenServicio** listarOrdenes(SistemaTaller* s, int* cantidad);
-OrdenServicio** listarOrdenesPorEstado(SistemaTaller* s, const char* estado, int* cantidad);
-OrdenServicio** listarOrdenesPorVehiculo(SistemaTaller* s, int idVehiculo, int* cantidad);
-```
-* `abrirOrden` crea una entidad nueva, así que retorna `OrdenServicio*` (o `nullptr`) y deja el motivo en `error` (vehículo con orden abierta, mecánico lleno, kilometraje menor, etc.).
-* Agregar, quitar, cerrar y anular modifican una orden existente: retornan `CodigoError`, porque el mensaje depende del motivo (stock insuficiente, orden no abierta, repuesto no está en la orden...).
-* `ordenAbiertaDeVehiculo` permite que el mensaje diga cuál orden (`#4`) bloquea al vehículo.
-* `calcular*` retornan `float` y reciben `const`: no modifican nada.
+## Organización del código
 
-## Preguntas de análisis
-*(Respuestas redactadas con base en nuestra implementación; cada integrante debe poder explicarlas con sus propias palabras.)*
+| Capa | Archivos |
+|---|---|
+| Persistencia (solo `<fstream>`, sin `cin/cout`, sin reglas de negocio) | `archivos.cpp`, `persistencia.cpp` |
+| Lógica de negocio (sin `cin/cout`) | `vehiculos.cpp`, `mecanicos.cpp`, `repuestos.cpp`, `ordenes.cpp`, `reportes.cpp`, `mantenimiento.cpp`, `sistema.cpp`, `utilidades.cpp` |
+| Presentación (nunca abre archivos) | `main.cpp`, `entrada.cpp`, `mensajes.cpp`, `menu_vehiculos.cpp`, `menu_mecanicos.cpp`, `menu_repuestos.cpp`, `menu_ordenes.cpp`, `menu_reportes.cpp`, `menu_mantenimiento.cpp` |
+| Definiciones comunes | `taller.h` |
 
-**1. `agregarVehiculo` retorna un puntero a un elemento de `s->vehiculos`. Si guardamos ese puntero, registramos más vehículos y luego lo usamos, ¿qué puede ocurrir y por qué?**
-Puede quedar un *puntero colgante*. Cuando el arreglo se llena, `duplicarSiLleno` reserva un arreglo nuevo, copia los elementos y hace `delete[]` del arreglo viejo. El puntero guardado sigue apuntando a la memoria que ya se liberó, así que leer o escribir a través de él es comportamiento indefinido (datos basura, corrupción o caída del programa). Por eso en el sistema los punteros retornados se usan de inmediato y las relaciones entre entidades se guardan por **ID**, no por puntero.
+## Archivos de datos (`datos/`)
 
-**2. ¿Por qué `DetalleOrden` guarda `precioUnitario` en lugar de consultar el precio del repuesto cada vez que se calcula el total?**
-Porque el precio de un repuesto puede cambiar con el tiempo (`cambiarPrecioRepuesto`). Si el total se calculara con el precio actual, una orden ya cerrada cambiaría de monto cada vez que se modifique el precio, y se falsearía el historial y lo que ya se le cobró al cliente. Guardando el precio al momento de agregar el repuesto, el total de cada orden queda fijo (Caso de Uso 4).
+| Archivo | Contenido |
+|---|---|
+| `taller.bin` | Un único registro `Taller` (sin header) |
+| `vehiculos.bin` | Vehículos (header + registros) |
+| `mecanicos.bin` | Mecánicos activos y dados de baja |
+| `repuestos.bin` | Inventario |
+| `ordenes.bin` | Órdenes ABIERTAS, CERRADAS y ANULADAS, con su detalle |
 
-**3. Cuando se redimensiona el arreglo de órdenes, ¿qué ocurre con el arreglo de detalles de cada orden? ¿Se copia, se comparte o se pierde?**
-**No se pierde y no se duplica: se transfiere el puntero.** `duplicarSiLleno` copia cada `OrdenServicio` con asignación de structs, lo que copia el valor del campo `detalles` (la dirección). El `delete[]` del arreglo viejo libera solo las estructuras `OrdenServicio`, no el bloque al que apuntaba `detalles`, porque `delete[]` no sigue punteros internos. Así, la orden nueva y la vieja apuntaban al mismo bloque, pero la vieja desaparece y queda un único dueño. Si en cambio hiciéramos `delete[] ordenes[i].detalles` antes de redimensionar, se perderían las líneas. Al final, `liberarSistema` recorre las órdenes y libera cada arreglo de detalles antes de liberar el arreglo de órdenes.
+## Reglas de negocio principales
 
-## Casos de uso
-La carpeta `pruebas/` contiene `entrada.txt` (ejecuta los 8 casos de uso en orden: vehículos, inventario, orden completa, precio histórico, anulación, validaciones, redimensionamiento y cancelación) y `salida.txt` (generada con el comando indicado arriba).
+- **Vehículos:** placa única entre activos; año 1950–2027; no se eliminan si tienen órdenes.
+- **Mecánicos:** cédula única; especialidad MOTOR, FRENOS, ELECTRICIDAD, SUSPENSION o GENERAL; no se dan de baja con órdenes ABIERTAS; máximo 3 órdenes abiertas por mecánico.
+- **Repuestos:** código único entre activos; alerta BAJO STOCK (`stock <= stockMinimo`); no se eliminan si aparecen en alguna orden.
+- **Órdenes:** un vehículo no puede tener dos órdenes abiertas; el kilometraje de ingreso no puede ser menor al del vehículo; el precio de cada línea es el vigente al agregarla (precio histórico); anular devuelve el stock de todas las líneas.
+
+## Pruebas
+
+La carpeta `pruebas/` contiene las entradas de los 8 casos de uso (`entrada_1a.txt`, `entrada_3b.txt`, …) y `ejecutar_pruebas.bat`, que los ejecuta en orden, genera `salida_*.txt` y deja `datos/` pre-poblado. Detalle en [README_V2.md](README_V2.md), sección 9.

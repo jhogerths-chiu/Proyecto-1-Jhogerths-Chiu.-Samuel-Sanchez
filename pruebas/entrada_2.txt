@@ -1,0 +1,77 @@
+Autoservicio El Lago
+J-12345678-9
+Avenida Principal, Maracaibo
+0261-1234567
+1
+1
+PLA001
+Marca
+Modelo
+2015
+1000
+Propietario 1
+V-100
+0414-0
+S
+1
+PLA002
+Marca
+Modelo
+2015
+2000
+Propietario 2
+V-101
+0414-1
+S
+1
+PLA003
+Marca
+Modelo
+2015
+3000
+Propietario 3
+V-102
+0414-2
+S
+1
+PLA004
+Marca
+Modelo
+2015
+4000
+Propietario 4
+V-103
+0414-3
+S
+1
+PLA005
+Marca
+Modelo
+2015
+5000
+Propietario 5
+V-104
+0414-4
+S
+1
+PLA006
+Marca
+Modelo
+2015
+6000
+Propietario 6
+V-105
+0414-5
+S
+4
+PLA003
+S
+2
+3
+5
+2
+3
+3
+0
+0
+S

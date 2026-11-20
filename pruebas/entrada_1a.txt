@@ -1,0 +1,86 @@
+Autoservicio El Lago
+J-12345678-9
+Avenida Principal, Maracaibo
+0261-1234567
+1
+1
+ABC123
+Toyota
+Corolla
+2015
+50000
+Juan Perez
+V-111
+0414-1
+S
+1
+ABC124
+Ford
+Fiesta
+2012
+80000
+Maria Lopez
+V-222
+0414-2
+S
+1
+ABC125
+Honda
+Civic
+2018
+30000
+Pedro Gomez
+V-333
+0414-3
+S
+0
+2
+1
+Jose Perez
+V-444
+MOTOR
+2020-01-15
+S
+1
+Ana Villalobos
+V-555
+FRENOS
+2021-03-10
+S
+0
+3
+1
+R001
+Filtro aceite
+Bosch
+10.5
+20
+5
+S
+1
+R002
+Pastillas freno
+Brembo
+45
+20
+5
+S
+1
+R003
+Bujia
+NGK
+6.25
+20
+5
+S
+1
+R004
+Bateria
+Duncan
+120
+20
+5
+S
+0
+0
+S

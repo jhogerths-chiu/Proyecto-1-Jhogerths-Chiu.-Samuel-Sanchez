@@ -122,7 +122,48 @@ enum CodigoError {
     E_MECANICO_CON_ORDENES_ABIERTAS,
     E_CANTIDAD_INVALIDA,
     E_PRECIO_INVALIDO,
-    E_REPUESTO_EN_USO
+    E_REPUESTO_EN_USO,
+    // --- ordenes ---
+    E_VEHICULO_INACTIVO,             // vehiculo eliminado
+    E_MECANICO_INACTIVO,             // mecanico dado de baja
+    E_VEHICULO_CON_ORDEN_ABIERTA,
+    E_MECANICO_LLENO,                // ya tiene 3 ordenes ABIERTAS
+    E_KM_MENOR,
+    E_ORDEN_NO_ABIERTA,
+    E_ORDEN_NO_ANULABLE,
+    E_STOCK_INSUFICIENTE,
+    E_REPUESTO_NO_EN_ORDEN,
+    E_ORDEN_SIN_CONTENIDO,
+    E_MANO_OBRA_INVALIDA,
+    E_LINEAS_LLENAS                  // la orden alcanzo MAX_LINEAS_ORDEN
+};
+
+// ============================================================
+//  ESTRUCTURAS DE RESULTADO (en memoria; no se escriben en disco)
+// ============================================================
+const int MAX_PROBLEMAS  = 200;    // mensajes que guarda el reporte de integridad
+const int TOP_REPUESTOS  = 10;
+
+struct ReporteIntegridad {
+    int vehiculosVerificados;
+    int mecanicosVerificados;
+    int repuestosVerificados;
+    int ordenesVerificadas;
+    int problemas;                         // total encontrado (puede superar MAX_PROBLEMAS)
+    int numMensajes;                       // mensajes almacenados
+    char mensajes[MAX_PROBLEMAS][160];
+};
+
+struct UsoRepuesto {
+    int idRepuesto;
+    int unidades;
+};
+
+struct FacturacionMecanico {
+    int idMecanico;
+    int ordenesCerradas;
+    float manoObra;
+    float repuestos;
 };
 
 // ============================================================
@@ -141,6 +182,8 @@ CodigoError errorArchivo(const char* ruta);       // registra el archivo con fal
 CodigoError errorCorrupto(const char* ruta);      // registra el archivo con falla y retorna E_ARCHIVO_CORRUPTO
 const char* archivoConError();                    // ultimo archivo que fallo
 bool        crearCarpeta(const char* ruta);
+CodigoError contarRegistrosEnArchivo(const char* ruta, size_t tamRegistro, int& cantidad); // segun el tamano real
+CodigoError copiarArchivo(const char* origen, const char* destino);                       // byte a byte
 void        formatearFecha(time_t t, char* dest); // YYYY-MM-DD, dest con al menos 11 bytes
 
 // --- persistencia.cpp: las 5 operaciones por entidad ---
@@ -215,10 +258,32 @@ CodigoError cambiarPrecioRepuesto(int idRepuesto, float nuevoPrecio);
 CodigoError eliminarRepuesto(int idRepuesto);                              // E_REPUESTO_EN_USO
 bool        estaBajoStock(const Repuesto& r);
 
-// --- ordenes.cpp (consultas necesarias para las reglas de los demas modulos) ---
+// --- ordenes.cpp ---
+CodigoError abrirOrden(int idVehiculo, int idMecanico, int kilometrajeIngreso,
+                       const char* descripcionFalla, int* idNuevo);
+CodigoError obtenerOrdenPorID(int id, OrdenServicio& out, long* posicion = nullptr); // E_ID_NO_EXISTE
+CodigoError agregarRepuestoAOrden(int idOrden, int idRepuesto, int cantidad);
+CodigoError quitarRepuestoDeOrden(int idOrden, int idRepuesto);
+CodigoError cerrarOrden(int idOrden, float manoObra);
+CodigoError anularOrden(int idOrden);
+float       calcularSubtotalRepuestos(const OrdenServicio& o);
+float       calcularTotalOrden(const OrdenServicio& o);
+CodigoError ordenAbiertaDeVehiculo(int idVehiculo, int& idOrden);          // idOrden = 0 si no hay
+CodigoError listarOrdenes(OrdenServicio* res, int& cantidad, bool& hayMas);
+CodigoError listarOrdenesPorEstado(const char* estado, OrdenServicio* res, int& cantidad, bool& hayMas);
+CodigoError listarOrdenesPorVehiculo(int idVehiculo, OrdenServicio* res, int& cantidad, bool& hayMas);
 CodigoError contarOrdenesDeVehiculo(int idVehiculo, int& cantidad);        // cualquier estado
 CodigoError contarOrdenesAbiertasMecanico(int idMecanico, int& cantidad);
 CodigoError repuestoUsadoEnOrdenes(int idRepuesto, bool& usado);           // aparece en alguna linea
+
+// --- mantenimiento.cpp ---
+CodigoError verificarIntegridad(ReporteIntegridad& reporte);
+CodigoError crearBackup(char* rutaBackup, int tam);                        // retorna la ruta creada
+
+// --- reportes.cpp ---
+CodigoError totalFacturadoVehiculo(int idVehiculo, float& total);         // solo ordenes CERRADAS
+CodigoError repuestosMasUtilizados(UsoRepuesto* top, int& cantidad);       // hasta TOP_REPUESTOS
+CodigoError facturacionPorMecanico(FacturacionMecanico* filas, int& cantidad, bool& hayMas);
 
 // ============================================================
 //  CAPA DE PRESENTACION (cin / cout)
@@ -268,8 +333,19 @@ void menuEliminarRepuesto();
 void mostrarRepuesto(const Repuesto& r);
 void mostrarListaRepuestos(const Repuesto* repuestos, int cantidad, bool hayMas);
 
-// --- menu_ordenes.cpp / menu_reportes.cpp / menu_mantenimiento.cpp ---
+// --- menu_ordenes.cpp ---
 void menuGestionOrdenes();
+void menuAbrirOrden();
+void menuAgregarRepuestoOrden();
+void menuQuitarRepuestoOrden();
+void menuCerrarOrden();
+void menuAnularOrden();
+void menuVerDetalleOrden();
+void menuListarOrdenes();
+void mostrarDetalleOrden(const OrdenServicio& o);
+void mostrarListaOrdenes(const OrdenServicio* ordenes, int cantidad, bool hayMas);
+
+// --- menu_reportes.cpp / menu_mantenimiento.cpp ---
 void menuReportes();
 void menuMantenimiento();
 

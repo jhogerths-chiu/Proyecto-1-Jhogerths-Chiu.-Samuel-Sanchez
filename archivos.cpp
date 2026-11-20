@@ -114,6 +114,38 @@ bool crearCarpeta(const char* ruta) {
     return r == 0 || errno == EEXIST;
 }
 
+// Registros que realmente caben en el archivo segun su tamano en bytes (sin fiarse del header).
+// Si sobran bytes (registro incompleto) retorna E_ARCHIVO_CORRUPTO.
+CodigoError contarRegistrosEnArchivo(const char* ruta, size_t tamRegistro, int& cantidad) {
+    cantidad = 0;
+    ifstream f(ruta, ios::binary);
+    if (!f) return errorArchivo(ruta);
+    f.seekg(0, ios::end);
+    long tam = (long)f.tellg();
+    if (tam < (long)sizeof(ArchivoHeader)) return errorCorrupto(ruta);
+    long cuerpo = tam - (long)sizeof(ArchivoHeader);
+    cantidad = (int)(cuerpo / (long)tamRegistro);
+    if (cuerpo % (long)tamRegistro != 0) return errorCorrupto(ruta);
+    return E_OK;
+}
+
+// Copia byte a byte (en bloques) con <fstream>
+CodigoError copiarArchivo(const char* origen, const char* destino) {
+    ifstream in(origen, ios::binary);
+    if (!in) return errorArchivo(origen);
+    ofstream out(destino, ios::binary | ios::trunc);
+    if (!out) return errorArchivo(destino);
+    char buffer[4096];
+    while (in) {
+        in.read(buffer, sizeof buffer);
+        streamsize n = in.gcount();
+        if (n > 0) out.write(buffer, n);
+    }
+    out.close();
+    if (!out) return errorArchivo(destino);
+    return E_OK;
+}
+
 void formatearFecha(time_t t, char* dest) {
     struct tm* lt = localtime(&t);
     if (lt == nullptr) { copiarTexto(dest, "?", 11); return; }
